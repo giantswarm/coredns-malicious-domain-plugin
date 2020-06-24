@@ -27,7 +27,7 @@ type Malicious struct {
 	blacklist      *mph.CHD
 	lastReloadTime time.Time
 	Options        PluginOptions
-	// quit           chan bool
+	quit           chan bool
 }
 
 // ServeDNS implements the plugin.Handler interface. This method gets called when malicious is used

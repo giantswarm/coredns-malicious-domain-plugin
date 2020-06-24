@@ -22,6 +22,8 @@ type PluginOptions struct {
 	ReloadPeriod   time.Duration
 }
 
+// var
+
 // init registers this plugin.
 func init() { plugin.Register("malicious", setup) }
 
@@ -49,7 +51,10 @@ func setup(c *caddy.Controller) error {
 
 	// TODO: Make reload async
 	// e := Malicious{blacklist: blacklist, lastReloadTime: time.Now(), quit: make(chan bool)}
-	// reloadHook(&e)
+	e := Malicious{blacklist: blacklist, lastReloadTime: reloadTime, quit: make(chan bool)}
+	quit := make(chan bool)
+	tick := time.NewTicker(time.Second * 5)
+	reloadHook(&e, tick, quit)
 
 	// Add a startup function that will -- after all plugins have been loaded -- check if the
 	// prometheus plugin has been used - if so we will export metrics. We can only register
@@ -62,14 +67,22 @@ func setup(c *caddy.Controller) error {
 		return nil
 	})
 
-	// c.OnFinalShutdown(func() error {
-	// 	e.quit <- true
-	// 	return nil
-	// })
+	c.OnFinalShutdown(func() error {
+		log.Info("ITS THE FINAL SHUTDOWN~")
+		close(quit)
+		log.Info("~~")
+		tick.Stop()
+		e.quit <- true
+		close(e.quit)
+		return nil
+	})
 
 	// Add the Plugin to CoreDNS, so Servers can use it in their plugin chain.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return &Malicious{Next: next, blacklist: blacklist, lastReloadTime: reloadTime, Options: options}
+		e.Next = next
+		e.Options = options
+		return &e
+		// &Malicious{Next: next, blacklist: blacklist, lastReloadTime: reloadTime, Options: options}
 	})
 
 	// All OK, return a nil error.
@@ -163,23 +176,54 @@ func logTime(msg string, since time.Time) {
 }
 
 // TODO: Make reload asynchronous
-// func reloadHook(e *Malicious) {
+func reloadHook(e *Malicious, tick *time.Ticker, quit chan bool) {
+	log.Info("reload called")
+	go func() {
+		// tick := time.NewTicker(time.Second * 5)
+		// defer tick.Stop()
+		log.Info("func called")
+		count := 0
+		for {
+			log.Info("loop iteration")
+			select {
+			case <-tick.C:
+				log.Info("Hook ticked")
+				count++
+				if count > 2 {
+					log.Info("Sending quit to hook")
+					e.quit <- true
+					// break
+				}
+
+			case <-e.quit:
+				log.Info("Stopping hook")
+				return
+			}
+		}
+	}()
+}
+
+// // TODO: Make reload asynchronous
+// func reloadHook(e *Malicious, tick *time.Ticker) {
 // 	go func() {
-// 		tick := time.NewTicker(time.Second * 5)
+// 		// tick := time.NewTicker(time.Second * 5)
+// 		// defer tick.Stop()
+
 // 		count := 0
 // 		for {
 // 			select {
-// 			case <-e.quit:
-// 				log.Info("Stopping hook")
-// 				return
-
 // 			case <-tick.C:
 // 				log.Info("Hook ticked")
 // 				count++
-// 				if count > 5 {
+// 				if count > 2 {
+// 					log.Info("Sending quit to hook")
 // 					e.quit <- true
-// 					break
+// 					// break
 // 				}
+
+// 			case <-e.quit:
+// 				log.Info("Stopping hook")
+// 				return
 // 			}
 // 		}
 // 	}()
