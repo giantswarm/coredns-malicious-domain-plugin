@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/mph v0.0.0-20190930022807-712982e3d8a2
 	github.com/alecthomas/unsafeslice v0.0.0-20190825002529-d95de1041e15 // indirect
 	github.com/coredns/caddy v1.1.1
-	github.com/coredns/coredns v1.8.3
+	github.com/coredns/coredns v1.8.4
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-immutable-radix v1.3.1
 	github.com/miekg/dns v1.1.43
